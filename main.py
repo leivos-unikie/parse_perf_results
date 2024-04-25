@@ -1,14 +1,7 @@
 import os
 import csv
-import pandas
-
-from extract_value import *
 
 path_to_data = "../perf_data"
-
-# These should be extracted from the file_name.
-build = "himalia-102"
-build_cmd = ""
 
 # Dictionary defining locations where to extract each result value.
 parse_config = [
@@ -36,47 +29,117 @@ bits = 1
 while bits < 2050:
     bits_set = 1
     while bits_set < bits + 1:
-        find_bit_parse_config.append(('{} bits set of {} bits'.format(bits_set, bits), 1, 'Average for_each_set_bit took:', ' usec (+-'))
+        find_bit_parse_config.append(
+            ('{} bits set of {} bits'.format(bits_set, bits), 1, 'Average for_each_set_bit took:', ' usec (+-')
+        )
         bits_set *= 2
     bits *= 2
+
+# print(find_bit_parse_config)
+# print(len(find_bit_parse_config))
 
 
 def list_files(path):
     file_list = []
     for path, subdirs, files in os.walk(path):
         for name in files:
-            file_list.append(os.path.join(path, name))
-    file_list.sort(key=os.path.getctime)
-    return file_list
+            if name.find("perf_results") != -1 and name.find("csv") == -1:
+                file_list.append(os.path.join(path, name))
+
+    # file_list.sort(key=os.path.getctime)
+    # The file creation time may differ from actual build date.
+    # Let's sort according to file name (perf_results_YYYY-MM-DD_BuildMachine-BuildID) simply in ascending order.
+    ordered_file_list = sorted(file_list)
+
+    return ordered_file_list
 
 
-def extract_values(_file_list, detect_string, offset, start_string, end_string):
+def parse_build_info(file):
+    # Expected file name format: perf_results_YYYY-MM-DD_BuildMachine-BuildID
+    info = file.split('_results_')[-1]
+    commit_date = info.split('_')[0]
+    build = info.split('_')[-1]
+    build_machine = build.split('-')[0]
+    build_id = build.split('-')[-1]
 
-    for f in _file_list:
-        value = extract(f, detect_string, offset, start_string, end_string)
-        # print(value)
+    build_info = [commit_date, build_machine, build_id]
 
-    return value
+    return build_info
 
 
-def save_to_csv(file_list, config, csv_file_name):
+def extract_value(file, detect_str, offset, str1, str2):
 
-    results = [1, build_cmd, build]
-    for i in range(len(config)):
-        results.append(
-            extract_values(file_list, config[i][0], config[i][1], config[i][2], config[i][3])
-        )
+    with open(file, 'r') as f:
 
-    # print(len(parse_config))
-    # print(results)
+        # read all lines using readline()
+        lines = f.readlines()
 
-    header = ['test_run', 'build_cmd', 'build']
+        row_index = 0
+        match_index = -1
+
+        for row in lines:
+            # find() method returns -1 if the value is not found,
+            # if found it returns index of the first occurrence of the substring
+            if row.find(detect_str) != -1:
+                match_index = row_index
+                # print(match_index)
+            row_index += 1
+
+        if match_index < 0:
+            print("Error in extracting '{}': Result value not found.".format(detect_str))
+            return ''
+
+        line = lines[match_index + offset]
+        # print(line)
+        res = ''
+
+        try:
+            # getting index of substrings
+            idx1 = line.index(str1)
+            idx2 = line.index(str2)
+            # print(idx1)
+            # print(idx2)
+
+            # getting elements in between
+            for idx in range(idx1 + len(str1), idx2):
+                res = res + line[idx]
+
+            res = float(res)
+            # print("Extracting '{}': {}".format(detect_str, res))
+            return res
+
+        except:
+            print("Error in extracting '{}': Result value not found.".format(detect_str))
+            return res
+
+
+def save_to_csv(file, config, csv_file_name):
+
+    results = parse_build_info(file)
+
+    with open(path_to_data + "/" + csv_file_name, 'a') as f:
+
+        writer_object = csv.writer(f)
+
+        for i in range(len(config)):
+            results.append(
+                extract_value(file, config[i][0], config[i][1], config[i][2], config[i][3])
+            )
+        # print(results)
+        writer_object.writerow(results)
+        f.close()
+
+
+def create_csv_file(config, csv_file_name):
+
+    header = ['build_date', 'build_machine', 'build_id']
     for i in range(len(config)):
         header.append(config[i][0])
-    # print(header)
-    panda_data = pandas.DataFrame([results], columns=header)
-    # print(panda_data)
-    panda_data.to_csv(path_to_data + "/" + csv_file_name, index=False)
+
+    with open(path_to_data + "/" + csv_file_name, 'w') as f:
+        writer = csv.writer(f, delimiter='\t', lineterminator='\n')
+        writer.writerow(header)
+        f.close()
 
 
 def main():
@@ -86,8 +149,12 @@ def main():
     print(file_list)
     print()
 
-    save_to_csv(file_list, parse_config, "perf_results.csv")
-    save_to_csv(file_list, find_bit_parse_config, "perf_find_bit_results.csv")
+    create_csv_file(parse_config, "perf_results.csv")
+    create_csv_file(find_bit_parse_config, "perf_find_bit_results.csv")
+
+    for f in file_list:
+        save_to_csv(f, parse_config, "perf_results.csv")
+        save_to_csv(f, find_bit_parse_config, "perf_find_bit_results.csv")
 
 
 if __name__ == '__main__':
