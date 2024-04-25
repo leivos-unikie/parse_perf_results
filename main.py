@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2022-2024 Technology Innovation Institute (TII)
+# SPDX-License-Identifier: Apache-2.0
+
 import os
 import csv
 
