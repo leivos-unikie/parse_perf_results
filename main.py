@@ -39,7 +39,8 @@ while bits < 2050:
     bits *= 2
 
 # print(find_bit_parse_config)
-# print(len(find_bit_parse_config))
+print("Extracting " + str(len(find_bit_parse_config)) + " separate results from find bit tests.")
+print("Extracting " + str(len(parse_config)) + " separate results from other tests.")
 
 
 def list_files(path):
@@ -58,14 +59,15 @@ def list_files(path):
 
 
 def parse_build_info(file):
-    # Expected file name format: perf_results_YYYY-MM-DD_BuildMachine-BuildID
+    # Expected file name format: perf_results_YYYY-MM-DD_BuildMachine-BuildID_SDorEMMC
     info = file.split('_results_')[-1]
     commit_date = info.split('_')[0]
-    build = info.split('_')[-1]
+    build = info.split('_')[1]
     build_machine = build.split('-')[0]
     build_id = build.split('-')[-1]
+    boot_source = info.split('_')[-1]
 
-    build_info = [commit_date, build_machine, build_id]
+    build_info = [commit_date, build_machine, build_id, boot_source]
 
     return build_info
 
@@ -135,7 +137,7 @@ def save_to_csv(file, config, csv_file_name):
 
 def create_csv_file(config, csv_file_name):
 
-    header = ['build_date', 'build_machine', 'build_id']
+    header = ['build_date', 'build_machine', 'build_id', 'boot_src']
     for i in range(len(config)):
         header.append(config[i][0])
 
