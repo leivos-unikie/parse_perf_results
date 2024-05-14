@@ -5,7 +5,7 @@ import os
 import csv
 import pandas
 
-path_to_data = "../perf_data"
+path_to_data = "../perf_data/SD"
 
 # Dictionary defining locations where to extract each result value.
 parse_config = [
@@ -154,24 +154,19 @@ def calc_statistics(csv_file_name):
     # print(len(data.axes[1]))
     # print(len(avgs))
 
-    # Detect those results which are further than 1 std away from column mean.
+    print()
+    print("Parameters which are further than 1 std away from column mean.")
     for i in range(4, 3 + len(avgs)):
         for j in range(len(data.axes[0])):
-            if abs(data.iat[j, i] - avgs[i-3]) > stds[i - 3]:
+            if abs(data.iat[j, i] - avgs[i - 4]) > stds[i - 4]:
                 print()
-                print("Parameters which are further than 1 std away from column mean.")
                 print(data.columns.values.tolist()[i])
                 print(j)
                 print(data.iat[j, i])
-
-    # Detect those results which are further than 10% away from column mean.
-    for i in range(4, 3 + len(avgs)):
-        if abs(data.iat[0, i] - data.iat[1, i]) > avgs[i-3]/10:
-            print()
-            print("Results which are further than 10% away from column mean.")
-            print(data.columns.values.tolist()[i])
-            print(data.iat[0, i])
-            print(data.iat[1, i])
+                print("Distance from column mean (standard deviations):")
+                print(abs(data.iat[j, i] - avgs[i - 4]) / stds[i - 4])
+                # print(avgs[i - 4])
+                # print(stds[i - 4])
 
 
 def create_csv_file(config, csv_file_name):
