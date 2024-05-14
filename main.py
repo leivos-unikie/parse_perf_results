@@ -3,6 +3,7 @@
 
 import os
 import csv
+import pandas
 
 path_to_data = "../perf_data"
 
@@ -135,6 +136,44 @@ def save_to_csv(file, config, csv_file_name):
         f.close()
 
 
+def calc_statistics(csv_file_name):
+    data = pandas.read_csv(path_to_data + "/" + csv_file_name)
+
+    # Calculate column averages
+    column_avgs = data.mean(numeric_only=True)
+    print("Average for each column:")
+    print(column_avgs)
+
+    column_stds = data.std(numeric_only=True)
+    print("Standard deviation for each column:")
+    print(column_stds)
+
+    avgs = column_avgs.tolist()
+    stds = column_stds.tolist()
+    # print(len(data.axes[0]))
+    # print(len(data.axes[1]))
+    # print(len(avgs))
+
+    # Detect those results which are further than 1 std away from column mean.
+    for i in range(4, 3 + len(avgs)):
+        for j in range(len(data.axes[0])):
+            if abs(data.iat[j, i] - avgs[i-3]) > stds[i - 3]:
+                print()
+                print("Parameters which are further than 1 std away from column mean.")
+                print(data.columns.values.tolist()[i])
+                print(j)
+                print(data.iat[j, i])
+
+    # Detect those results which are further than 10% away from column mean.
+    for i in range(4, 3 + len(avgs)):
+        if abs(data.iat[0, i] - data.iat[1, i]) > avgs[i-3]/10:
+            print()
+            print("Results which are further than 10% away from column mean.")
+            print(data.columns.values.tolist()[i])
+            print(data.iat[0, i])
+            print(data.iat[1, i])
+
+
 def create_csv_file(config, csv_file_name):
 
     header = ['build_date', 'build_machine', 'build_id', 'boot_src']
@@ -142,7 +181,7 @@ def create_csv_file(config, csv_file_name):
         header.append(config[i][0])
 
     with open(path_to_data + "/" + csv_file_name, 'w') as f:
-        writer = csv.writer(f, delimiter='\t', lineterminator='\n')
+        writer = csv.writer(f, delimiter=',', lineterminator='\n')
         writer.writerow(header)
         f.close()
 
@@ -161,6 +200,9 @@ def main():
         save_to_csv(f, parse_config, "perf_results.csv")
         save_to_csv(f, find_bit_parse_config, "perf_find_bit_results.csv")
 
+    calc_statistics("perf_results.csv")
+    print()
+    calc_statistics("perf_find_bit_results.csv")
 
 if __name__ == '__main__':
     main()
