@@ -154,19 +154,42 @@ def calc_statistics(csv_file_name):
     # print(len(data.axes[1]))
     # print(len(avgs))
 
-    print()
-    print("Parameters which are further than 1 std away from column mean.")
-    for i in range(4, 3 + len(avgs)):
+    dist = ['-'] * (len(avgs) + 4)
+
+    # print()
+    # print("Parameters which are further than 1 std away from column mean.")
+    for i in range(4, 4 + len(avgs)):
         for j in range(len(data.axes[0])):
             if abs(data.iat[j, i] - avgs[i - 4]) > stds[i - 4]:
-                print()
-                print(data.columns.values.tolist()[i])
-                print(j)
-                print(data.iat[j, i])
-                print("Distance from column mean (standard deviations):")
-                print(abs(data.iat[j, i] - avgs[i - 4]) / stds[i - 4])
+                # print()
+                # print(data.columns.values.tolist()[i])
+                # print(j)
+                # print(data.iat[j, i])
+                # print("Distance from column mean (standard deviations):")
+                distance = abs(data.iat[j, i] - avgs[i - 4]) / stds[i - 4]
+                if dist[i] == '-':
+                    dist[i] = distance
+                elif distance > dist[i]:
+                    dist[i] = distance
+                # print(abs(data.iat[j, i] - avgs[i - 4]) / stds[i - 4])
                 # print(avgs[i - 4])
                 # print(stds[i - 4])
+
+    with open(path_to_data + "/" + csv_file_name, 'a') as f:
+
+        writer_object = csv.writer(f)
+
+        writer_object.writerow([])
+        avgs_shifted = ['-'] * 3
+        avgs_shifted.append("average")
+        avgs_shifted = avgs_shifted + avgs
+        writer_object.writerow(avgs_shifted)
+        stds_shifted = ['-'] * 3
+        stds_shifted.append("std")
+        stds_shifted = stds_shifted + stds
+        writer_object.writerow(stds_shifted)
+        writer_object.writerow(dist)
+        f.close()
 
 
 def create_csv_file(config, csv_file_name):
