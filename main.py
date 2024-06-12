@@ -4,8 +4,9 @@
 import os
 import csv
 import pandas
+import shutil
 
-path_to_data = "../perf_data/SD"
+path_to_data = "../perf_data/both"
 
 # Dictionary defining locations where to extract each result value.
 parse_config = [
@@ -141,55 +142,74 @@ def calc_statistics(csv_file_name):
 
     # Calculate column averages
     column_avgs = data.mean(numeric_only=True)
-    print("Average for each column:")
-    print(column_avgs)
+    # print("Average for each column:")
+    # print(column_avgs)
 
     column_stds = data.std(numeric_only=True)
-    print("Standard deviation for each column:")
-    print(column_stds)
+    # print("Standard deviation for each column:")
+    # print(column_stds)
+
+    column_min = data.min(numeric_only=True)
+    # print("Min for each column:")
+    # print(column_min)
+
+    column_max = data.max(numeric_only=True)
+    # print("Max for each column:")
+    # print(column_max)
 
     avgs = column_avgs.tolist()
     stds = column_stds.tolist()
-    # print(len(data.axes[0]))
+    min_values = column_min.tolist()
+    max_values = column_max.tolist()
+
+    data_rows = len(data.axes[0])
     # print(len(data.axes[1]))
-    # print(len(avgs))
+    data_columns = len(avgs)
 
-    dist = ['-'] * (len(avgs) + 4)
+    # Detect significant deviations from column mean
 
-    # print()
-    # print("Parameters which are further than 1 std away from column mean.")
-    for i in range(4, 4 + len(avgs)):
-        for j in range(len(data.axes[0])):
+    # Find the result which is furthest away from the column mean.
+    # Not taking into account those results which are within 1 std from column mean.
+    max_deviations = ['-'] * (data_columns + 4)
+    for i in range(4, 4 + data_columns):
+        for j in range(data_rows):
             if abs(data.iat[j, i] - avgs[i - 4]) > stds[i - 4]:
-                # print()
-                # print(data.columns.values.tolist()[i])
-                # print(j)
-                # print(data.iat[j, i])
-                # print("Distance from column mean (standard deviations):")
                 distance = abs(data.iat[j, i] - avgs[i - 4]) / stds[i - 4]
-                if dist[i] == '-':
-                    dist[i] = distance
-                elif distance > dist[i]:
-                    dist[i] = distance
-                # print(abs(data.iat[j, i] - avgs[i - 4]) / stds[i - 4])
-                # print(avgs[i - 4])
-                # print(stds[i - 4])
+                if max_deviations[i] == '-':
+                    max_deviations[i] = distance
+                elif distance > max_deviations[i]:
+                    max_deviations[i] = distance
+
+    # Check if values of the last data row are 1 std away from their column mean.
+    last_row_deviations = ['-'] * (data_columns + 4)
+    last_row_deviations[3] = "LRD"
+    for i in range(4, 4 + data_columns):
+        if abs(data.iat[data_rows - 1, i] - avgs[i - 4]) > stds[i - 4]:
+            distance = data.iat[data_rows - 1, i] - avgs[i - 4] / stds[i - 4]
+            last_row_deviations[i] = distance
+
+    shutil.copyfile(path_to_data + "/" + csv_file_name, path_to_data + "/raw_" + csv_file_name)
 
     with open(path_to_data + "/" + csv_file_name, 'a') as f:
 
         writer_object = csv.writer(f)
 
         writer_object.writerow([])
-        avgs_shifted = ['-'] * 3
-        avgs_shifted.append("average")
-        avgs_shifted = avgs_shifted + avgs
-        writer_object.writerow(avgs_shifted)
-        stds_shifted = ['-'] * 3
-        stds_shifted.append("std")
-        stds_shifted = stds_shifted + stds
-        writer_object.writerow(stds_shifted)
-        writer_object.writerow(dist)
+        writer_object.writerow(last_row_deviations)
+        writer_object.writerow(create_stats_row(3, "average", avgs))
+        writer_object.writerow(create_stats_row(3, "std", stds))
+        writer_object.writerow([])
+        writer_object.writerow(create_stats_row(3, "max", max_values))
+        writer_object.writerow(create_stats_row(3, "min", min_values))
+
         f.close()
+
+
+def create_stats_row(shift, label, value_list):
+    row = ['-'] * shift
+    row.append(label)
+    row = row + value_list
+    return row
 
 
 def create_csv_file(config, csv_file_name):
