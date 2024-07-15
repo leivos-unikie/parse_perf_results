@@ -4,7 +4,13 @@
 -->
 
 # parse_perf_results
-A tool for extracting data from perf test output files to csv files 
+A tool for extracting data from perf test output files to csv files.
+
+Calculates if the last result of each test column is beyond threshold
+from the test column mean value.
+
+Normalized columns make it easier to monitor all tests with one glance
+after plotting.
 
 - Name format of the perf test output files should be as following:
 perf_results_YYYY_MM_DD_BUILDER-BuildID
@@ -15,5 +21,11 @@ perf_results_YYYY_MM_DD_BUILDER-BuildID
 python main.py
 
 - Produces these csv files to the location defined by path_to_data variable:
+
+  - raw_perf_results.csv
   - perf_results.csv 
+  - normalized_perf_results.csv
+    
+  - raw_perf_find_bit_results.csv
   - perf_find_bit_results.csv
+  - normalized_perf_find_bit_results.csv
