@@ -6,7 +6,7 @@ import csv
 import pandas
 import shutil
 
-path_to_data = "../perf_data/both"
+path_to_data = "../perf_data/SD"
 
 # Dictionary defining locations where to extract each result value.
 parse_config = [
@@ -27,6 +27,9 @@ parse_config = [
     ('internals/synthesize', 5, 'time per event ', ' usec'),
     ('internals/kallsyms-parse', 1, 'took: ', ' ms ')
 ]
+
+# How many columns are reserved for information extracted from the file name
+build_info_size = 5
 
 # Separate config for the test 'mem/find_bit' which has multiple output values.
 find_bit_parse_config = []
@@ -60,7 +63,7 @@ def list_files(path):
     return ordered_file_list
 
 
-def parse_build_info(file):
+def parse_build_info(file, file_index):
     # Expected file name format: perf_results_YYYY-MM-DD_BuildMachine-BuildID_SDorEMMC
     info = file.split('_results_')[-1]
     commit_date = info.split('_')[0]
@@ -68,8 +71,9 @@ def parse_build_info(file):
     build_machine = build.split('-')[0]
     build_id = build.split('-')[-1]
     boot_source = info.split('_')[-1]
+    line_index = file_index
 
-    build_info = [commit_date, build_machine, build_id, boot_source]
+    build_info = [commit_date, build_machine, build_id, boot_source, line_index]
 
     return build_info
 
@@ -120,9 +124,9 @@ def extract_value(file, detect_str, offset, str1, str2):
             return res
 
 
-def save_to_csv(file, config, csv_file_name):
+def save_to_csv(file, config, csv_file_name, file_index):
 
-    results = parse_build_info(file)
+    results = parse_build_info(file, file_index)
 
     with open(path_to_data + "/" + csv_file_name, 'a') as f:
 
@@ -135,6 +139,32 @@ def save_to_csv(file, config, csv_file_name):
         # print(results)
         writer_object.writerow(results)
         f.close()
+
+
+def normalize_columns(csv_file_name, normalize_to):
+    # Set the various results to the same range.
+    # This makes it easier to notice significant change in any of the result parameters with one glimpse
+    # If columns are plotted later on the whole picture is well displayed
+
+    data = pandas.read_csv(path_to_data + "/" + csv_file_name)
+
+    column_max = data.max(numeric_only=True)
+    print("Max for each column:")
+    # print(column_max)
+
+    # Cut away the index column which is numeric but not measurement data to be normalized
+    max_values = column_max[1:]
+
+    data_rows = len(data.axes[0])
+    # print(len(data.axes[1]))
+    data_columns = len(max_values)
+
+    # Normalize all columns between 0...normalize_to
+    for i in range(build_info_size, build_info_size + data_columns):
+        for j in range(data_rows):
+            normalized = data.iat[j, i] / max_values[i - build_info_size]
+            data.iloc[[j],[i]] = normalized * normalize_to
+    data.to_csv(path_to_data + "/" + "normalized_" + csv_file_name, index=False)
 
 
 def calc_statistics(csv_file_name):
@@ -157,10 +187,11 @@ def calc_statistics(csv_file_name):
     # print("Max for each column:")
     # print(column_max)
 
-    avgs = column_avgs.tolist()
-    stds = column_stds.tolist()
-    min_values = column_min.tolist()
-    max_values = column_max.tolist()
+    # Cut away the index column which is numeric but not measurement data to be included in calculations
+    avgs = column_avgs.tolist()[1:]
+    stds = column_stds.tolist()[1:]
+    min_values = column_min.tolist()[1:]
+    max_values = column_max.tolist()[1:]
 
     data_rows = len(data.axes[0])
     # print(len(data.axes[1]))
@@ -170,22 +201,22 @@ def calc_statistics(csv_file_name):
 
     # Find the result which is furthest away from the column mean.
     # Not taking into account those results which are within 1 std from column mean.
-    max_deviations = ['-'] * (data_columns + 4)
-    for i in range(4, 4 + data_columns):
+    max_deviations = ['-'] * (data_columns + build_info_size)
+    for i in range(build_info_size, build_info_size + data_columns):
         for j in range(data_rows):
-            if abs(data.iat[j, i] - avgs[i - 4]) > stds[i - 4]:
-                distance = abs(data.iat[j, i] - avgs[i - 4]) / stds[i - 4]
+            if abs(data.iat[j, i] - avgs[i - build_info_size]) > stds[i - build_info_size]:
+                distance = abs(data.iat[j, i] - avgs[i - build_info_size]) / stds[i - build_info_size]
                 if max_deviations[i] == '-':
                     max_deviations[i] = distance
                 elif distance > max_deviations[i]:
                     max_deviations[i] = distance
 
     # Check if values of the last data row are 1 std away from their column mean.
-    last_row_deviations = ['-'] * (data_columns + 4)
-    last_row_deviations[3] = "LRD"
-    for i in range(4, 4 + data_columns):
-        if abs(data.iat[data_rows - 1, i] - avgs[i - 4]) > stds[i - 4]:
-            distance = data.iat[data_rows - 1, i] - avgs[i - 4] / stds[i - 4]
+    last_row_deviations = ['-'] * (data_columns + build_info_size)
+    last_row_deviations[build_info_size - 1] = "LRD"
+    for i in range(build_info_size, build_info_size + data_columns):
+        if abs(data.iat[data_rows - 1, i] - avgs[i - build_info_size]) > stds[i - build_info_size]:
+            distance = (data.iat[data_rows - 1, i] - avgs[i - build_info_size]) / stds[i - build_info_size]
             last_row_deviations[i] = distance
 
     shutil.copyfile(path_to_data + "/" + csv_file_name, path_to_data + "/raw_" + csv_file_name)
@@ -196,11 +227,11 @@ def calc_statistics(csv_file_name):
 
         writer_object.writerow([])
         writer_object.writerow(last_row_deviations)
-        writer_object.writerow(create_stats_row(3, "average", avgs))
-        writer_object.writerow(create_stats_row(3, "std", stds))
+        writer_object.writerow(create_stats_row(build_info_size - 1, "average", avgs))
+        writer_object.writerow(create_stats_row(build_info_size - 1, "std", stds))
         writer_object.writerow([])
-        writer_object.writerow(create_stats_row(3, "max", max_values))
-        writer_object.writerow(create_stats_row(3, "min", min_values))
+        writer_object.writerow(create_stats_row(build_info_size - 1, "max", max_values))
+        writer_object.writerow(create_stats_row(build_info_size - 1, "min", min_values))
 
         f.close()
 
@@ -214,7 +245,7 @@ def create_stats_row(shift, label, value_list):
 
 def create_csv_file(config, csv_file_name):
 
-    header = ['build_date', 'build_machine', 'build_id', 'boot_src']
+    header = ['build_date', 'build_machine', 'build_id', 'boot_src', 'index']
     for i in range(len(config)):
         header.append(config[i][0])
 
@@ -234,12 +265,16 @@ def main():
     create_csv_file(parse_config, "perf_results.csv")
     create_csv_file(find_bit_parse_config, "perf_find_bit_results.csv")
 
+    file_index = 0
     for f in file_list:
-        save_to_csv(f, parse_config, "perf_results.csv")
-        save_to_csv(f, find_bit_parse_config, "perf_find_bit_results.csv")
+        save_to_csv(f, parse_config, "perf_results.csv", file_index)
+        save_to_csv(f, find_bit_parse_config, "perf_find_bit_results.csv", file_index)
+        file_index += 1
+
+    normalize_columns("perf_results.csv", 100)
+    normalize_columns("perf_find_bit_results.csv", 100)
 
     calc_statistics("perf_results.csv")
-    print()
     calc_statistics("perf_find_bit_results.csv")
 
 if __name__ == '__main__':
