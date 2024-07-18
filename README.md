@@ -23,9 +23,8 @@ python main.py
 - Produces these csv files to the location defined by path_to_data variable:
 
   - raw_perf_results.csv
-  - perf_results.csv 
+  - perf_results.csv
   - normalized_perf_results.csv
-    
   - raw_perf_find_bit_results.csv
   - perf_find_bit_results.csv
   - normalized_perf_find_bit_results.csv
