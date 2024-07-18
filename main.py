@@ -73,7 +73,7 @@ def parse_build_info(file, file_index):
     boot_source = info.split('_')[-1]
     line_index = file_index
 
-    build_info = [commit_date, build_machine, build_id, boot_source, line_index]
+    build_info = [line_index, build_machine, build_id, boot_source, commit_date]
 
     return build_info
 
@@ -149,8 +149,6 @@ def normalize_columns(csv_file_name, normalize_to):
     data = pandas.read_csv(path_to_data + "/" + csv_file_name)
 
     column_max = data.max(numeric_only=True)
-    print("Max for each column:")
-    # print(column_max)
 
     # Cut away the index column which is numeric but not measurement data to be normalized
     max_values = column_max[1:]
@@ -245,7 +243,7 @@ def create_stats_row(shift, label, value_list):
 
 def create_csv_file(config, csv_file_name):
 
-    header = ['build_date', 'build_machine', 'build_id', 'boot_src', 'index']
+    header = ['index', 'build_machine', 'build_id', 'boot_src', 'build_date']
     for i in range(len(config)):
         header.append(config[i][0])
 
