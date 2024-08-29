@@ -148,10 +148,9 @@ def normalize_columns(csv_file_name, normalize_to):
 
     data = pandas.read_csv(path_to_data + "/" + csv_file_name)
 
-    column_max = data.max(numeric_only=True)
-
-    # Cut away the index column which is numeric but not measurement data to be normalized
-    max_values = column_max[1:]
+    # Cut away the columns which are not actual measurement data and find max values
+    pure_data = data.drop(columns=data.columns[0:build_info_size])
+    max_values = pure_data.max(numeric_only=True)
 
     data_rows = len(data.axes[0])
     # print(len(data.axes[1]))
@@ -168,32 +167,29 @@ def normalize_columns(csv_file_name, normalize_to):
 def calc_statistics(csv_file_name):
     data = pandas.read_csv(path_to_data + "/" + csv_file_name)
 
+    # Cut away the columns which are not actual measurement values
+    pure_data = data.drop(columns=data.columns[0:build_info_size])
+
     # Calculate column averages
-    column_avgs = data.mean(numeric_only=True)
+    column_avgs = (pure_data.mean(numeric_only=True)).tolist()
     # print("Average for each column:")
     # print(column_avgs)
 
-    column_stds = data.std(numeric_only=True)
+    column_stds = (pure_data.std(numeric_only=True)).tolist()
     # print("Standard deviation for each column:")
     # print(column_stds)
 
-    column_min = data.min(numeric_only=True)
+    column_min = (pure_data.min(numeric_only=True)).tolist()
     # print("Min for each column:")
     # print(column_min)
 
-    column_max = data.max(numeric_only=True)
+    column_max = (pure_data.max(numeric_only=True)).tolist()
     # print("Max for each column:")
     # print(column_max)
 
-    # Cut away the index column which is numeric but not measurement data to be included in calculations
-    avgs = column_avgs.tolist()[1:]
-    stds = column_stds.tolist()[1:]
-    min_values = column_min.tolist()[1:]
-    max_values = column_max.tolist()[1:]
-
     data_rows = len(data.axes[0])
     # print(len(data.axes[1]))
-    data_columns = len(avgs)
+    data_columns = len(column_avgs)
 
     # Detect significant deviations from column mean
 
@@ -202,8 +198,8 @@ def calc_statistics(csv_file_name):
     max_deviations = ['-'] * (data_columns + build_info_size)
     for i in range(build_info_size, build_info_size + data_columns):
         for j in range(data_rows):
-            if abs(data.iat[j, i] - avgs[i - build_info_size]) > stds[i - build_info_size]:
-                distance = abs(data.iat[j, i] - avgs[i - build_info_size]) / stds[i - build_info_size]
+            if abs(data.iat[j, i] - column_avgs[i - build_info_size]) > column_stds[i - build_info_size]:
+                distance = abs(data.iat[j, i] - column_avgs[i - build_info_size]) / column_stds[i - build_info_size]
                 if max_deviations[i] == '-':
                     max_deviations[i] = distance
                 elif distance > max_deviations[i]:
@@ -213,8 +209,8 @@ def calc_statistics(csv_file_name):
     last_row_deviations = ['-'] * (data_columns + build_info_size)
     last_row_deviations[build_info_size - 1] = "LRD"
     for i in range(build_info_size, build_info_size + data_columns):
-        if abs(data.iat[data_rows - 1, i] - avgs[i - build_info_size]) > stds[i - build_info_size]:
-            distance = (data.iat[data_rows - 1, i] - avgs[i - build_info_size]) / stds[i - build_info_size]
+        if abs(data.iat[data_rows - 1, i] - column_avgs[i - build_info_size]) > column_stds[i - build_info_size]:
+            distance = (data.iat[data_rows - 1, i] - column_avgs[i - build_info_size]) / column_stds[i - build_info_size]
             last_row_deviations[i] = distance
 
     shutil.copyfile(path_to_data + "/" + csv_file_name, path_to_data + "/raw_" + csv_file_name)
@@ -225,11 +221,12 @@ def calc_statistics(csv_file_name):
 
         writer_object.writerow([])
         writer_object.writerow(last_row_deviations)
-        writer_object.writerow(create_stats_row(build_info_size - 1, "average", avgs))
-        writer_object.writerow(create_stats_row(build_info_size - 1, "std", stds))
+
+        writer_object.writerow(create_stats_row(build_info_size - 1, "average", column_avgs))
+        writer_object.writerow(create_stats_row(build_info_size - 1, "std", column_stds))
         writer_object.writerow([])
-        writer_object.writerow(create_stats_row(build_info_size - 1, "max", max_values))
-        writer_object.writerow(create_stats_row(build_info_size - 1, "min", min_values))
+        writer_object.writerow(create_stats_row(build_info_size - 1, "max", column_max))
+        writer_object.writerow(create_stats_row(build_info_size - 1, "min", column_min))
 
         f.close()
 
